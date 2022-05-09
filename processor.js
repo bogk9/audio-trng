@@ -15,11 +15,6 @@ function setBit(buffer, i, bit, value){
     }
 }  
 
-/* 
-Transformator odfiltrowuje bajty, dla których warunek nie zachodzi.
-Warunek jako argument konstruktora.
-*/
-
 class Transformator extends Transform{
     constructor(condition){
         super();
@@ -40,10 +35,6 @@ class Transformator extends Transform{
    }
 }
 
-/* 
-LastByteExtractor ekstraktuje tylko ostatni bit kazdej probki.
-*/
-
 class LastByteExtractor extends Transform{
     constructor(){
         super();
@@ -52,22 +43,20 @@ class LastByteExtractor extends Transform{
         let buffer = new Uint8Array(1);
         let pushCount = 0;
 
-        let b = Buffer.alloc(chunk.length);
+        let b = Buffer.alloc(chunk.length/8);
         let offset = 0;
+
         for(let byte of chunk){     
             setBit(buffer, 0, pushCount, byte%2);
             pushCount++;
 
             if(pushCount === 8){
-                if(buffer[0] !== 0){
-                    b.writeUInt8(buffer[0], offset);
-                    offset++;
-                }
+                b.writeUInt8(buffer[0], offset);
+                offset++;
                 pushCount=0;
             }   
         }
-        const nb = b.slice(0, b.indexOf(0x00));
-        this.push(nb);
+        this.push(b);
         next();
    }
 }
@@ -80,9 +69,10 @@ const extractor = new LastByteExtractor();
 
 console.time('Processing');
 
-const exec = input.pipe(filterBoundaryBits)
-               .pipe(sampleAndHold)
-               .pipe(extractor)
-               .pipe(output);
+const exec = input
+               .pipe(filterBoundaryBits) //0's and 255's rejected
+               .pipe(sampleAndHold) //gets values for whose Math.random() * 256)%2 is truthy
+               .pipe(extractor) //extracts last byte (%2)
+               .pipe(output); //to file
 
 exec.on('finish', () => { console.timeEnd('Processing');})
